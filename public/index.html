@@ -697,13 +697,13 @@
           </div>
         </div>
         <div class="field">
-          <label>UPI ID <span style="color:var(--red);font-size:11px;font-weight:400;">← your real UPI VPA, not your Gmail</span></label>
+          <label>FamPay UPI ID <span style="color:var(--green);font-size:11px;font-weight:400;">← ends with @fam</span></label>
           <div class="field-wrap">
-            <input type="text" id="signup-upi" placeholder="name@upi  or  9876543210@ybl  or  name@okicici" autocomplete="off">
+            <input type="text" id="signup-upi" placeholder="yourname.12345@fam" autocomplete="off">
             <span class="field-icon">💳</span>
           </div>
           <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:5px;line-height:1.5;">
-            Find yours: open PhonePe / GPay / Paytm → Profile → UPI ID. e.g. <code style="color:var(--green);">rahul@ybl</code>, <code style="color:var(--green);">9876543210@paytm</code>, <code style="color:var(--green);">rahul@oksbi</code>
+            Open FamPay app → Profile → UPI ID. It looks like <code style="color:var(--green);">ragini.19854@fam</code>
           </div>
         </div>
         <div class="field">
@@ -772,11 +772,11 @@
         </div>
         <div id="update-upi-form" style="display:none;margin-top:10px;display:none;">
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-            <input type="text" id="new-upi-input" placeholder="name@upi or 9876543210@ybl" style="flex:1;min-width:180px;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:#fff;font-size:13px;outline:none;">
+            <input type="text" id="new-upi-input" placeholder="yourname.12345@fam" style="flex:1;min-width:180px;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:#fff;font-size:13px;outline:none;">
             <button class="btn-primary" style="padding:8px 16px;font-size:13px;width:auto;" id="save-upi-btn" onclick="doUpdateUpi()">Save</button>
             <button class="btn-icon" onclick="hideUpdateUpi()">✕</button>
           </div>
-          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:6px;">e.g. <code style="color:var(--green);">rahul@ybl</code>, <code style="color:var(--green);">9876543210@paytm</code>, <code style="color:var(--green);">rahul@oksbi</code> — open PhonePe/GPay/Paytm → Profile to find yours</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:6px;">Open FamPay app → Profile → UPI ID. e.g. <code style="color:var(--green);">ragini.19854@fam</code></div>
           <div class="msg" id="upi-update-msg" style="margin-top:6px;"></div>
         </div>
       </div>

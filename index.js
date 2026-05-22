@@ -74,7 +74,7 @@ app.post('/auth/signup', async (req, res) => {
     return res.json({ status: 'error', message: 'Google App Password must be at least 8 characters (spaces are ignored)' });
   }
   if (!validateUpiId(upi)) {
-    return res.json({ status: 'error', message: 'Invalid UPI ID. Use your real UPI VPA like name@upi, number@ybl, name@okicici — not your Gmail address.' });
+    return res.json({ status: 'error', message: 'Invalid UPI ID. Use your FamPay UPI ID — open FamPay app → Profile → UPI ID. It ends with @fam, e.g. ragini.19854@fam' });
   }
 
   const db = loadDB();
@@ -174,7 +174,7 @@ app.post('/auth/update-upi', authMiddleware, async (req, res) => {
   const { upi } = req.body;
   if (!upi) return res.json({ status: 'error', message: 'UPI ID is required' });
   if (!validateUpiId(upi)) {
-    return res.json({ status: 'error', message: 'Invalid UPI ID. Use your real UPI VPA like name@upi, number@ybl, name@okicici — not your Gmail address.' });
+    return res.json({ status: 'error', message: 'Invalid UPI ID. Use your FamPay UPI ID — open FamPay app → Profile → UPI ID. It ends with @fam, e.g. ragini.19854@fam' });
   }
   const db = loadDB();
   const user = db.users[req.userId];

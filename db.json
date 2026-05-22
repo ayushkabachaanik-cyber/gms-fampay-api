@@ -23,6 +23,14 @@
       "apiKey": "GMS2K0M93LDPJXNIU",
       "webhookSecret": "GMSWH_5J4NXSYAMDAAOG68",
       "createdAt": "2026-05-22T19:57:23.906Z"
+    },
+    "famtest@gmail.com": {
+      "gmail": "famtest@gmail.com",
+      "upi": "ragini.19854@fam",
+      "password": "$2b$10$7nvrX1gYi6seAP1gqnGwp.1GqDhv2/C.bqHugXyPBY0KU6EngCSkm",
+      "apiKey": "GMSYN1TB2SY74USHU",
+      "webhookSecret": "GMSWH_OBQQ12O856BPGB3R",
+      "createdAt": "2026-05-22T20:00:19.523Z"
     }
   }
 }
