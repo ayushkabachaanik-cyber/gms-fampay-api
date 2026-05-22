@@ -3,125 +3,925 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GMS FamPay API</title>
+  <title>GMS FamPay — Free UPI Gateway</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-      background: url('https://files.catbox.moe/ktx8og.png') no-repeat center center fixed;
-      background-size: cover;
-      color: #0f0;
-      min-height: 100vh;
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green: #00ff88;
+      --green-dim: #00cc6a;
+      --green-glow: rgba(0,255,136,0.18);
+      --bg: #080b10;
+      --surface: rgba(255,255,255,0.04);
+      --surface-hover: rgba(255,255,255,0.07);
+      --border: rgba(255,255,255,0.09);
+      --border-green: rgba(0,255,136,0.3);
+      --text: #e8f0fe;
+      --muted: rgba(255,255,255,0.45);
+      --red: #ff4f6d;
+      --yellow: #ffc107;
+      --blue: #4fa3ff;
     }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Background blobs */
     body::before {
       content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0, 0, 0, 0.75);
-      z-index: -1;
+      position: fixed;
+      top: -200px; left: -200px;
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(0,255,136,0.07) 0%, transparent 70%);
+      pointer-events: none; z-index: 0;
     }
-    .container {
-      max-width: 800px;
-      margin: 40px auto;
-      padding: 20px;
+    body::after {
+      content: '';
+      position: fixed;
+      bottom: -200px; right: -200px;
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, rgba(79,163,255,0.06) 0%, transparent 70%);
+      pointer-events: none; z-index: 0;
+    }
+
+    /* ===== NAV ===== */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 32px;
+      height: 60px;
+      background: rgba(8,11,16,0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-logo {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 700; font-size: 18px; color: var(--green);
+      letter-spacing: -0.3px;
+    }
+    .nav-logo span { color: var(--text); }
+    .nav-badge {
+      background: var(--green-glow);
+      border: 1px solid var(--border-green);
+      color: var(--green);
+      font-size: 11px; font-weight: 600;
+      padding: 2px 8px; border-radius: 20px;
+      letter-spacing: 0.5px;
+    }
+
+    /* ===== PAGES ===== */
+    .page { display: none; min-height: calc(100vh - 60px); position: relative; z-index: 1; }
+    .page.active { display: flex; }
+
+    /* ===== AUTH PAGE ===== */
+    #auth-page {
+      align-items: center; justify-content: center;
+      padding: 40px 20px;
+    }
+    .auth-card {
+      width: 100%; max-width: 440px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.4);
+    }
+    .auth-hero {
       text-align: center;
-      background: rgba(0, 0, 0, 0.7);
-      border-radius: 15px;
-      border: 1px solid #0f0;
+      padding: 36px 32px 24px;
+      background: linear-gradient(160deg, rgba(0,255,136,0.06) 0%, transparent 60%);
+      border-bottom: 1px solid var(--border);
     }
-    h1 { color: #00ff00; text-shadow: 0 0 10px #0f0; }
-    input, button {
-      padding: 12px;
-      margin: 8px 0;
+    .auth-icon {
+      width: 64px; height: 64px;
+      background: linear-gradient(135deg, rgba(0,255,136,0.2), rgba(0,255,136,0.05));
+      border: 1px solid var(--border-green);
+      border-radius: 18px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px;
+      margin: 0 auto 16px;
+      box-shadow: 0 0 30px var(--green-glow);
+    }
+    .auth-hero h1 { font-size: 22px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+    .auth-hero p { font-size: 13.5px; color: var(--muted); }
+
+    /* Tabs */
+    .auth-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+    }
+    .tab-btn {
+      flex: 1; padding: 14px;
+      background: none; border: none; cursor: pointer;
+      font-size: 14px; font-weight: 600;
+      color: var(--muted);
+      transition: all 0.2s;
+      position: relative;
+    }
+    .tab-btn.active {
+      color: var(--green);
+      background: rgba(0,255,136,0.04);
+    }
+    .tab-btn.active::after {
+      content: '';
+      position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+      background: var(--green);
+    }
+    .tab-btn:hover:not(.active) { color: var(--text); background: var(--surface-hover); }
+
+    .auth-body { padding: 28px 32px; }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* Form */
+    .field { margin-bottom: 16px; }
+    .field label {
+      display: block;
+      font-size: 12.5px; font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 7px;
+      text-transform: uppercase; letter-spacing: 0.6px;
+    }
+    .field-wrap { position: relative; }
+    .field input {
       width: 100%;
-      border-radius: 5px;
-      font-size: 16px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 40px 12px 14px;
+      color: var(--text);
+      font-size: 14.5px;
+      font-family: inherit;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      outline: none;
     }
-    input { background: rgba(255,255,255,0.1); color: white; }
-    button { background: #0f0; color: black; font-weight: bold; cursor: pointer; }
-    button:hover { background: #00cc00; }
-    .help-btn { background: #444; color: white; }
-    .telegram-btn { background: #229ED9; color: white; }
-    pre { background: #222; padding: 15px; overflow: auto; border-radius: 5px; }
+    .field input:focus {
+      border-color: var(--border-green);
+      box-shadow: 0 0 0 3px var(--green-glow);
+    }
+    .field input::placeholder { color: rgba(255,255,255,0.25); }
+    .field-icon {
+      position: absolute; right: 13px; top: 50%; transform: translateY(-50%);
+      font-size: 15px; color: var(--muted); pointer-events: none;
+    }
+    .toggle-pass {
+      position: absolute; right: 13px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; cursor: pointer;
+      color: var(--muted); font-size: 15px; padding: 0;
+    }
+    .toggle-pass:hover { color: var(--text); }
+
+    .btn-primary {
+      width: 100%;
+      background: linear-gradient(135deg, var(--green), var(--green-dim));
+      border: none; border-radius: 10px;
+      padding: 13px;
+      color: #080b10;
+      font-size: 15px; font-weight: 700;
+      font-family: inherit; cursor: pointer;
+      transition: all 0.2s;
+      letter-spacing: 0.2px;
+      margin-top: 4px;
+    }
+    .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); box-shadow: 0 8px 20px rgba(0,255,136,0.25); }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    .msg {
+      margin-top: 14px;
+      padding: 11px 14px;
+      border-radius: 9px;
+      font-size: 13.5px;
+      font-weight: 500;
+      display: none;
+    }
+    .msg.error { background: rgba(255,79,109,0.12); border: 1px solid rgba(255,79,109,0.3); color: #ff8fa2; }
+    .msg.success { background: rgba(0,255,136,0.1); border: 1px solid var(--border-green); color: var(--green); }
+    .msg.show { display: block; }
+
+    .hint { margin-top: 14px; text-align: center; font-size: 12.5px; color: var(--muted); }
+
+    /* ===== DASHBOARD ===== */
+    #dash-page {
+      flex-direction: column;
+      padding: 0;
+    }
+
+    .dash-inner {
+      max-width: 900px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 32px 20px 60px;
+    }
+
+    .dash-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 28px;
+      flex-wrap: wrap; gap: 14px;
+    }
+    .dash-welcome h2 {
+      font-size: 22px; font-weight: 700;
+      background: linear-gradient(90deg, var(--text), var(--muted));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .dash-welcome p { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+    .btn-logout {
+      background: rgba(255,79,109,0.1);
+      border: 1px solid rgba(255,79,109,0.25);
+      color: #ff8fa2;
+      padding: 8px 18px;
+      border-radius: 9px; font-size: 13.5px; font-weight: 600;
+      font-family: inherit; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-logout:hover { background: rgba(255,79,109,0.18); }
+
+    /* API Key card */
+    .api-key-card {
+      background: linear-gradient(135deg, rgba(0,255,136,0.07) 0%, rgba(0,255,136,0.02) 100%);
+      border: 1px solid var(--border-green);
+      border-radius: 16px;
+      padding: 22px 24px;
+      margin-bottom: 22px;
+      position: relative;
+      overflow: hidden;
+    }
+    .api-key-card::before {
+      content: '';
+      position: absolute; top: -50px; right: -50px;
+      width: 150px; height: 150px;
+      background: radial-gradient(circle, rgba(0,255,136,0.1) 0%, transparent 70%);
+    }
+    .api-key-label {
+      font-size: 11px; font-weight: 700; color: var(--green);
+      letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px;
+    }
+    .api-key-val {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    .api-key-text {
+      font-family: 'Courier New', monospace;
+      font-size: 18px; font-weight: 700;
+      color: var(--green);
+      letter-spacing: 1px;
+      flex: 1; word-break: break-all;
+    }
+    .key-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .btn-icon {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 7px 13px;
+      border-radius: 8px; font-size: 13px; font-weight: 600;
+      font-family: inherit; cursor: pointer;
+      transition: all 0.2s; display: flex; align-items: center; gap: 6px;
+    }
+    .btn-icon:hover { background: var(--surface-hover); color: var(--text); }
+    .btn-revoke {
+      background: rgba(255,79,109,0.1);
+      border: 1px solid rgba(255,79,109,0.25);
+      color: #ff8fa2;
+    }
+    .btn-revoke:hover { background: rgba(255,79,109,0.18); color: #ff8fa2; }
+
+    .api-meta {
+      display: flex; gap: 24px; margin-top: 14px; flex-wrap: wrap;
+    }
+    .api-meta-item { font-size: 12.5px; color: var(--muted); }
+    .api-meta-item strong { color: var(--text); font-weight: 600; }
+
+    /* Grid */
+    .dash-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+    @media (max-width: 640px) { .dash-grid { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 22px 22px;
+    }
+    .card-title {
+      font-size: 13px; font-weight: 700;
+      color: var(--text);
+      letter-spacing: 0.2px;
+      margin-bottom: 16px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .card-title .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+    }
+
+    .input-row { display: flex; gap: 8px; }
+    .input-row input {
+      flex: 1;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 11px 14px;
+      color: var(--text);
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .input-row input:focus {
+      border-color: var(--border-green);
+      box-shadow: 0 0 0 3px var(--green-glow);
+    }
+    .input-row input::placeholder { color: rgba(255,255,255,0.25); }
+    .btn-action {
+      background: linear-gradient(135deg, var(--green), var(--green-dim));
+      border: none; border-radius: 9px;
+      padding: 11px 18px;
+      color: #080b10; font-size: 13.5px; font-weight: 700;
+      font-family: inherit; cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+    .btn-action:hover { opacity: 0.88; transform: translateY(-1px); }
+
+    /* QR result */
+    .qr-result { margin-top: 16px; display: none; }
+    .qr-box {
+      background: rgba(0,0,0,0.4);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+    }
+    .qr-img {
+      border-radius: 10px;
+      border: 3px solid var(--green);
+      width: 180px; height: 180px;
+      object-fit: contain;
+      background: white;
+      display: block; margin: 0 auto 12px;
+      box-shadow: 0 0 20px var(--green-glow);
+    }
+    .qr-order-id {
+      font-family: monospace; font-size: 12px;
+      color: var(--muted); margin-bottom: 6px;
+    }
+    .qr-upi { font-size: 13.5px; color: var(--text); font-weight: 600; margin-bottom: 4px; }
+    .qr-amount { font-size: 22px; font-weight: 800; color: var(--green); }
+
+    /* Verify result */
+    .verify-result { margin-top: 14px; }
+    .status-badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 5px 12px; border-radius: 20px;
+      font-size: 12.5px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.5px;
+      margin-bottom: 10px;
+    }
+    .status-success { background: rgba(0,255,136,0.12); border: 1px solid var(--border-green); color: var(--green); }
+    .status-pending { background: rgba(255,193,7,0.12); border: 1px solid rgba(255,193,7,0.3); color: var(--yellow); }
+    .status-error { background: rgba(255,79,109,0.12); border: 1px solid rgba(255,79,109,0.3); color: var(--red); }
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+    .detail-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    }
+    .detail-item {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 8px; padding: 9px 12px;
+    }
+    .detail-key { font-size: 10.5px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
+    .detail-val { font-size: 13px; font-weight: 600; color: var(--text); word-break: break-all; }
+
+    /* API docs card */
+    .docs-card {
+      grid-column: 1 / -1;
+    }
+    .endpoint {
+      background: rgba(0,0,0,0.3);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      display: flex; align-items: flex-start; gap: 12px;
+      flex-wrap: wrap;
+    }
+    .method {
+      font-size: 11px; font-weight: 800;
+      padding: 3px 8px; border-radius: 5px;
+      letter-spacing: 0.5px; white-space: nowrap; margin-top: 1px;
+    }
+    .GET { background: rgba(79,163,255,0.15); color: var(--blue); border: 1px solid rgba(79,163,255,0.3); }
+    .POST { background: rgba(0,255,136,0.1); color: var(--green); border: 1px solid var(--border-green); }
+    .endpoint-info { flex: 1; }
+    .endpoint-url {
+      font-family: monospace; font-size: 13px; color: var(--text);
+      margin-bottom: 4px; word-break: break-all;
+    }
+    .endpoint-desc { font-size: 12.5px; color: var(--muted); }
+
+    /* Revoke confirm */
+    .revoke-confirm {
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(6px);
+      display: none; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .revoke-confirm.show { display: flex; }
+    .revoke-box {
+      background: #0f1318;
+      border: 1px solid rgba(255,79,109,0.3);
+      border-radius: 18px;
+      padding: 32px;
+      max-width: 360px; width: 100%;
+      text-align: center;
+      box-shadow: 0 30px 60px rgba(0,0,0,0.5);
+    }
+    .revoke-box .icon { font-size: 40px; margin-bottom: 16px; }
+    .revoke-box h3 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+    .revoke-box p { font-size: 13.5px; color: var(--muted); margin-bottom: 22px; line-height: 1.5; }
+    .revoke-btns { display: flex; gap: 10px; }
+    .btn-cancel {
+      flex: 1;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 12px;
+      border-radius: 10px; font-size: 14px; font-weight: 600;
+      font-family: inherit; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-cancel:hover { background: var(--surface-hover); }
+    .btn-confirm-revoke {
+      flex: 1;
+      background: linear-gradient(135deg, var(--red), #c0392b);
+      border: none;
+      color: white;
+      padding: 12px;
+      border-radius: 10px; font-size: 14px; font-weight: 700;
+      font-family: inherit; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-confirm-revoke:hover { opacity: 0.9; }
+
+    .copy-toast {
+      position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,255,136,0.15);
+      border: 1px solid var(--border-green);
+      color: var(--green);
+      padding: 10px 22px;
+      border-radius: 30px;
+      font-size: 13.5px; font-weight: 600;
+      opacity: 0; transition: opacity 0.3s;
+      pointer-events: none; z-index: 300;
+    }
+    .copy-toast.show { opacity: 1; }
+
+    /* Spinner */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(0,0,0,0.2);
+      border-top-color: #080b10;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: inline-block; vertical-align: middle; margin-right: 6px;
+    }
   </style>
 </head>
 <body>
-<div class="container">
-  <h1>🔥 GMS FamPay API</h1>
 
-  <div id="setup">
-    <h2>Setup Your API</h2>
-    <input type="email" id="gmail" placeholder="Gmail Address"><br>
-    <input type="password" id="appPass" placeholder="Gmail App Password"><br>
-    <input type="text" id="upi" placeholder="Your UPI ID"><br>
-    <button onclick="createAPI()">Create API Key (Free)</button>
-    <button class="help-btn" onclick="showAppPasswordHelp()">How to get Google App Password?</button>
-    <button class="telegram-btn" onclick="window.open('https://t.me/+1NRRqUd1replNTM1', '_blank')">Join GMS Network</button>
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">
+    🔥 GMS<span>FamPay</span>
   </div>
+  <span class="nav-badge">FREE API</span>
+</nav>
 
-  <div id="dashboard" style="display:none;">
-    <h2>✅ API Ready</h2>
-    <p><strong>API Key:</strong> <span id="apiKeyDisplay"></span></p>
-    <p><strong>UPI:</strong> <span id="upiDisplay"></span></p>
+<!-- AUTH PAGE -->
+<div class="page active" id="auth-page">
+  <div class="auth-card">
+    <div class="auth-hero">
+      <div class="auth-icon">🔥</div>
+      <h1>GMS FamPay API</h1>
+      <p>Free UPI payment gateway with QR generation &amp; verification</p>
+    </div>
+    <div class="auth-tabs">
+      <button class="tab-btn active" onclick="switchTab('login')">Log In</button>
+      <button class="tab-btn" onclick="switchTab('signup')">Sign Up</button>
+    </div>
+    <div class="auth-body">
 
-    <h3>Generate QR</h3>
-    <input type="number" id="amount" value="10">
-    <button onclick="genQR()">Generate QR</button>
-    <pre id="qrRes"></pre>
+      <!-- LOGIN -->
+      <div class="tab-panel active" id="panel-login">
+        <div class="field">
+          <label>Gmail Address</label>
+          <div class="field-wrap">
+            <input type="email" id="login-gmail" placeholder="you@gmail.com" autocomplete="email">
+            <span class="field-icon">✉️</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <div class="field-wrap">
+            <input type="password" id="login-pass" placeholder="Your password" autocomplete="current-password">
+            <button class="toggle-pass" type="button" onclick="togglePass('login-pass', this)">👁️</button>
+          </div>
+        </div>
+        <button class="btn-primary" id="login-btn" onclick="doLogin()">Log In</button>
+        <div class="msg" id="login-msg"></div>
+        <p class="hint">No account? <a href="#" style="color:var(--green); text-decoration:none;" onclick="switchTab('signup')">Sign up free →</a></p>
+      </div>
 
-    <h3>Verify Payment</h3>
-    <input type="text" id="orderId" placeholder="Order ID">
-    <button onclick="verifyPay()">Verify</button>
-    <pre id="verifyRes"></pre>
+      <!-- SIGNUP -->
+      <div class="tab-panel" id="panel-signup">
+        <div class="field">
+          <label>Gmail Address</label>
+          <div class="field-wrap">
+            <input type="email" id="signup-gmail" placeholder="you@gmail.com" autocomplete="email">
+            <span class="field-icon">✉️</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>UPI ID</label>
+          <div class="field-wrap">
+            <input type="text" id="signup-upi" placeholder="yourname@upi" autocomplete="off">
+            <span class="field-icon">💳</span>
+          </div>
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <div class="field-wrap">
+            <input type="password" id="signup-pass" placeholder="Min 6 characters" autocomplete="new-password">
+            <button class="toggle-pass" type="button" onclick="togglePass('signup-pass', this)">👁️</button>
+          </div>
+        </div>
+        <button class="btn-primary" id="signup-btn" onclick="doSignup()">Create Account</button>
+        <div class="msg" id="signup-msg"></div>
+        <p class="hint">Already have an account? <a href="#" style="color:var(--green); text-decoration:none;" onclick="switchTab('login')">Log in →</a></p>
+      </div>
+
+    </div>
   </div>
 </div>
 
-<script>
-let currentApiKey = "";
+<!-- DASHBOARD PAGE -->
+<div class="page" id="dash-page">
+  <div class="dash-inner">
 
-async function createAPI() {
-  const gmail = document.getElementById('gmail').value.trim();
-  const appPass = document.getElementById('appPass').value.trim();
-  const upi = document.getElementById('upi').value.trim();
-  if (!gmail || !appPass || !upi) return alert("All fields required");
-  
-  const res = await fetch('/create-api', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({gmail, appPass, upi})
-  });
-  const data = await res.json();
-  
-  if (data.status === "success") {
-    currentApiKey = data.apiKey;
-    document.getElementById('apiKeyDisplay').textContent = data.apiKey;
-    document.getElementById('upiDisplay').textContent = upi;
-    document.getElementById('setup').style.display = 'none';
-    document.getElementById('dashboard').style.display = 'block';
-  } else {
-    alert(data.message);
+    <div class="dash-header">
+      <div class="dash-welcome">
+        <h2>Welcome back 👋</h2>
+        <p id="dash-email">Loading...</p>
+      </div>
+      <button class="btn-logout" onclick="doLogout()">Log Out</button>
+    </div>
+
+    <!-- API Key -->
+    <div class="api-key-card">
+      <div class="api-key-label">Your API Key</div>
+      <div class="api-key-val">
+        <div class="api-key-text" id="dash-apikey">—</div>
+        <div class="key-actions">
+          <button class="btn-icon" onclick="copyKey()">📋 Copy</button>
+          <button class="btn-icon btn-revoke" onclick="showRevoke()">🔁 Regenerate</button>
+        </div>
+      </div>
+      <div class="api-meta">
+        <div class="api-meta-item">UPI ID: <strong id="dash-upi">—</strong></div>
+      </div>
+    </div>
+
+    <!-- QR + Verify Grid -->
+    <div class="dash-grid">
+
+      <!-- Generate QR -->
+      <div class="card">
+        <div class="card-title"><span class="dot"></span>Generate Payment QR</div>
+        <div class="input-row">
+          <input type="number" id="qr-amount" value="10" min="1" placeholder="Amount (₹)">
+          <button class="btn-action" onclick="genQR()">Generate</button>
+        </div>
+        <div class="qr-result" id="qr-result">
+          <div class="qr-box">
+            <img class="qr-img" id="qr-img" src="" alt="QR Code">
+            <div class="qr-upi" id="qr-upi-label">—</div>
+            <div class="qr-amount" id="qr-amount-label">₹0</div>
+            <div class="qr-order-id" id="qr-order-id">Order ID: —</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Verify Payment -->
+      <div class="card">
+        <div class="card-title"><span class="dot"></span>Verify Payment</div>
+        <div class="input-row">
+          <input type="text" id="verify-orderid" placeholder="Order ID">
+          <button class="btn-action" onclick="verifyPay()">Verify</button>
+        </div>
+        <div class="verify-result" id="verify-result"></div>
+      </div>
+
+      <!-- API Docs -->
+      <div class="card docs-card">
+        <div class="card-title"><span class="dot"></span>API Reference</div>
+
+        <div class="endpoint">
+          <span class="method GET">GET</span>
+          <div class="endpoint-info">
+            <div class="endpoint-url">/api/qr?api=<span id="doc-apikey" style="color:var(--green)">YOUR_KEY</span>&amount=100</div>
+            <div class="endpoint-desc">Generate a new payment QR code and order ID</div>
+          </div>
+        </div>
+
+        <div class="endpoint">
+          <span class="method GET">GET</span>
+          <div class="endpoint-info">
+            <div class="endpoint-url">/api/verify?api_key=<span style="color:var(--green)">YOUR_KEY</span>&order_id=FAMPAY...</div>
+            <div class="endpoint-desc">Verify payment status for an order</div>
+          </div>
+        </div>
+
+        <div class="endpoint">
+          <span class="method GET">GET</span>
+          <div class="endpoint-info">
+            <div class="endpoint-url">/qr/ORDER_ID.png</div>
+            <div class="endpoint-desc">Get the actual QR code image (PNG)</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Revoke Confirm Modal -->
+<div class="revoke-confirm" id="revoke-modal">
+  <div class="revoke-box">
+    <div class="icon">⚠️</div>
+    <h3>Regenerate API Key?</h3>
+    <p>Your old API key will stop working immediately. Any active integrations using it will break.</p>
+    <div class="revoke-btns">
+      <button class="btn-cancel" onclick="hideRevoke()">Cancel</button>
+      <button class="btn-confirm-revoke" onclick="doRevoke()">Yes, Regenerate</button>
+    </div>
+  </div>
+</div>
+
+<!-- Copy Toast -->
+<div class="copy-toast" id="copy-toast">✅ Copied to clipboard!</div>
+
+<script>
+let currentToken = null;
+let currentUser = null;
+
+// On load — check for saved session
+window.addEventListener('DOMContentLoaded', () => {
+  const saved = localStorage.getItem('gms_token');
+  if (saved) {
+    currentToken = saved;
+    fetchMe();
+  }
+});
+
+async function fetchMe() {
+  try {
+    const r = await fetch('/auth/me', { headers: { Authorization: 'Bearer ' + currentToken } });
+    const d = await r.json();
+    if (d.status === 'success') {
+      currentUser = d.user;
+      showDash();
+    } else {
+      localStorage.removeItem('gms_token');
+    }
+  } catch(e) {
+    localStorage.removeItem('gms_token');
   }
 }
 
+function switchTab(t) {
+  document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', (i === 0) === (t === 'login')));
+  document.getElementById('panel-login').classList.toggle('active', t === 'login');
+  document.getElementById('panel-signup').classList.toggle('active', t === 'signup');
+  hideMsg('login-msg'); hideMsg('signup-msg');
+}
+
+function togglePass(id, btn) {
+  const el = document.getElementById(id);
+  el.type = el.type === 'password' ? 'text' : 'password';
+  btn.textContent = el.type === 'password' ? '👁️' : '🙈';
+}
+
+function showMsg(id, text, type) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = 'msg ' + type + ' show';
+}
+function hideMsg(id) {
+  const el = document.getElementById(id);
+  el.className = 'msg';
+}
+
+function setLoading(btnId, loading, label) {
+  const btn = document.getElementById(btnId);
+  btn.disabled = loading;
+  btn.innerHTML = loading ? `<span class="spinner"></span>Please wait...` : label;
+}
+
+async function doLogin() {
+  const gmail = document.getElementById('login-gmail').value.trim();
+  const password = document.getElementById('login-pass').value;
+  hideMsg('login-msg');
+  if (!gmail || !password) return showMsg('login-msg', 'Please enter email and password', 'error');
+  setLoading('login-btn', true, 'Log In');
+  try {
+    const r = await fetch('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gmail, password })
+    });
+    const d = await r.json();
+    if (d.status === 'success') {
+      currentToken = d.token;
+      currentUser = d.user;
+      localStorage.setItem('gms_token', currentToken);
+      showMsg('login-msg', '✅ ' + d.message, 'success');
+      setTimeout(showDash, 500);
+    } else {
+      showMsg('login-msg', d.message, 'error');
+    }
+  } catch(e) {
+    showMsg('login-msg', 'Connection error. Try again.', 'error');
+  }
+  setLoading('login-btn', false, 'Log In');
+}
+
+async function doSignup() {
+  const gmail = document.getElementById('signup-gmail').value.trim();
+  const upi = document.getElementById('signup-upi').value.trim();
+  const password = document.getElementById('signup-pass').value;
+  hideMsg('signup-msg');
+  if (!gmail || !upi || !password) return showMsg('signup-msg', 'All fields are required', 'error');
+  if (password.length < 6) return showMsg('signup-msg', 'Password must be at least 6 characters', 'error');
+  setLoading('signup-btn', true, 'Create Account');
+  try {
+    const r = await fetch('/auth/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gmail, upi, password })
+    });
+    const d = await r.json();
+    if (d.status === 'success') {
+      currentToken = d.token;
+      currentUser = d.user;
+      localStorage.setItem('gms_token', currentToken);
+      showMsg('signup-msg', '✅ ' + d.message, 'success');
+      setTimeout(showDash, 600);
+    } else {
+      showMsg('signup-msg', d.message, 'error');
+    }
+  } catch(e) {
+    showMsg('signup-msg', 'Connection error. Try again.', 'error');
+  }
+  setLoading('signup-btn', false, 'Create Account');
+}
+
+function showDash() {
+  if (!currentUser) return;
+  document.getElementById('auth-page').classList.remove('active');
+  document.getElementById('dash-page').classList.add('active');
+  document.getElementById('dash-email').textContent = currentUser.gmail;
+  document.getElementById('dash-apikey').textContent = currentUser.apiKey;
+  document.getElementById('dash-upi').textContent = currentUser.upi;
+  document.getElementById('doc-apikey').textContent = currentUser.apiKey;
+  document.getElementById('verify-orderid').value = '';
+  document.getElementById('verify-result').innerHTML = '';
+  document.getElementById('qr-result').style.display = 'none';
+}
+
+function doLogout() {
+  currentToken = null; currentUser = null;
+  localStorage.removeItem('gms_token');
+  document.getElementById('dash-page').classList.remove('active');
+  document.getElementById('auth-page').classList.add('active');
+  document.getElementById('login-gmail').value = '';
+  document.getElementById('login-pass').value = '';
+  hideMsg('login-msg');
+  switchTab('login');
+}
+
+function copyKey() {
+  navigator.clipboard.writeText(currentUser?.apiKey || '').then(() => showToast());
+}
+
+function showToast() {
+  const t = document.getElementById('copy-toast');
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+function showRevoke() { document.getElementById('revoke-modal').classList.add('show'); }
+function hideRevoke() { document.getElementById('revoke-modal').classList.remove('show'); }
+
+async function doRevoke() {
+  hideRevoke();
+  try {
+    const r = await fetch('/auth/revoke-api', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + currentToken }
+    });
+    const d = await r.json();
+    if (d.status === 'success') {
+      currentUser.apiKey = d.apiKey;
+      document.getElementById('dash-apikey').textContent = d.apiKey;
+      document.getElementById('doc-apikey').textContent = d.apiKey;
+      showToast();
+      // Flash effect
+      const card = document.querySelector('.api-key-card');
+      card.style.borderColor = 'var(--green)';
+      card.style.boxShadow = '0 0 30px var(--green-glow)';
+      setTimeout(() => { card.style.borderColor = ''; card.style.boxShadow = ''; }, 1500);
+    }
+  } catch(e) { alert('Failed to regenerate. Try again.'); }
+}
+
+let lastOrderId = null;
+
 async function genQR() {
-  const amount = document.getElementById('amount').value;
-  const res = await fetch(`/api/qr?api=${currentApiKey}&amount=${amount}`);
-  const data = await res.json();
-  document.getElementById('qrRes').textContent = JSON.stringify(data, null, 2);
-  if (data.data) document.getElementById('orderId').value = data.data.order_id;
+  const amount = parseFloat(document.getElementById('qr-amount').value) || 10;
+  const btn = document.querySelector('.card:nth-child(1) .btn-action');
+  btn.disabled = true; btn.textContent = '...';
+  try {
+    const r = await fetch(`/api/qr?api=${encodeURIComponent(currentUser.apiKey)}&amount=${amount}`);
+    const d = await r.json();
+    if (d.status === 'success') {
+      lastOrderId = d.data.order_id;
+      document.getElementById('qr-img').src = d.data.qr_url + '?t=' + Date.now();
+      document.getElementById('qr-upi-label').textContent = d.data.upi_id;
+      document.getElementById('qr-amount-label').textContent = '₹' + d.data.amount;
+      document.getElementById('qr-order-id').textContent = 'Order ID: ' + d.data.order_id;
+      document.getElementById('qr-result').style.display = 'block';
+      document.getElementById('verify-orderid').value = d.data.order_id;
+    } else {
+      alert(d.message);
+    }
+  } catch(e) { alert('Error generating QR'); }
+  btn.disabled = false; btn.textContent = 'Generate';
 }
 
 async function verifyPay() {
-  const orderId = document.getElementById('orderId').value;
-  const res = await fetch(`/api/verify?api_key=${currentApiKey}&order_id=${orderId}`);
-  const data = await res.json();
-  document.getElementById('verifyRes').textContent = JSON.stringify(data, null, 2);
+  const orderId = document.getElementById('verify-orderid').value.trim();
+  if (!orderId) return;
+  const container = document.getElementById('verify-result');
+  container.innerHTML = '<div style="color:var(--muted);font-size:13px;">Checking...</div>';
+  try {
+    const r = await fetch(`/api/verify?api_key=${encodeURIComponent(currentUser.apiKey)}&order_id=${encodeURIComponent(orderId)}`);
+    const d = await r.json();
+
+    if (d.status === 'success') {
+      container.innerHTML = `
+        <div class="status-badge status-success"><span class="status-dot"></span>Payment Success</div>
+        <div class="detail-grid">
+          <div class="detail-item"><div class="detail-key">Transaction ID</div><div class="detail-val">${d.data.transaction_id}</div></div>
+          <div class="detail-item"><div class="detail-key">UTR</div><div class="detail-val">${d.data.utr}</div></div>
+          <div class="detail-item"><div class="detail-key">Amount</div><div class="detail-val">₹${d.data.amount}</div></div>
+          <div class="detail-item"><div class="detail-key">Sender</div><div class="detail-val">${d.data.sender_name}</div></div>
+          <div class="detail-item" style="grid-column:1/-1"><div class="detail-key">Time</div><div class="detail-val">${d.data.payment_time_ist}</div></div>
+        </div>`;
+    } else if (d.status === 'pending') {
+      container.innerHTML = `
+        <div class="status-badge status-pending"><span class="status-dot"></span>Pending</div>
+        <div style="font-size:13px;color:var(--muted);">Payment not received yet. Try again in a moment.</div>`;
+    } else {
+      container.innerHTML = `<div class="status-badge status-error"><span class="status-dot"></span>Error: ${d.message}</div>`;
+    }
+  } catch(e) {
+    container.innerHTML = `<div class="status-badge status-error"><span class="status-dot"></span>Connection error</div>`;
+  }
 }
 
-function showAppPasswordHelp() {
-  alert("🔑 How to Get Google App Password:\n\n1. Go to myaccount.google.com\n2. Search 'App Passwords'\n3. Select Mail → Other\n4. Generate & Copy 16 character password");
-}
+// Enter key support
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const loginPanel = document.getElementById('panel-login');
+  const signupPanel = document.getElementById('panel-signup');
+  if (loginPanel.classList.contains('active')) doLogin();
+  else if (signupPanel.classList.contains('active')) doSignup();
+});
 </script>
 </body>
 </html>
