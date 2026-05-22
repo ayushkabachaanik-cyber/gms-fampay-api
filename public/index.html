@@ -697,10 +697,13 @@
           </div>
         </div>
         <div class="field">
-          <label>UPI ID</label>
+          <label>UPI ID <span style="color:var(--red);font-size:11px;font-weight:400;">← your real UPI VPA, not your Gmail</span></label>
           <div class="field-wrap">
-            <input type="text" id="signup-upi" placeholder="yourname@upi" autocomplete="off">
+            <input type="text" id="signup-upi" placeholder="name@upi  or  9876543210@ybl  or  name@okicici" autocomplete="off">
             <span class="field-icon">💳</span>
+          </div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:5px;line-height:1.5;">
+            Find yours: open PhonePe / GPay / Paytm → Profile → UPI ID. e.g. <code style="color:var(--green);">rahul@ybl</code>, <code style="color:var(--green);">9876543210@paytm</code>, <code style="color:var(--green);">rahul@oksbi</code>
           </div>
         </div>
         <div class="field">
@@ -763,7 +766,19 @@
         </div>
       </div>
       <div class="api-meta">
-        <div class="api-meta-item">UPI ID: <strong id="dash-upi">—</strong></div>
+        <div class="api-meta-item" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          UPI ID: <strong id="dash-upi">—</strong>
+          <button class="btn-icon" style="padding:3px 10px;font-size:11px;" onclick="showUpdateUpi()">✏️ Update</button>
+        </div>
+        <div id="update-upi-form" style="display:none;margin-top:10px;display:none;">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <input type="text" id="new-upi-input" placeholder="name@upi or 9876543210@ybl" style="flex:1;min-width:180px;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:#fff;font-size:13px;outline:none;">
+            <button class="btn-primary" style="padding:8px 16px;font-size:13px;width:auto;" id="save-upi-btn" onclick="doUpdateUpi()">Save</button>
+            <button class="btn-icon" onclick="hideUpdateUpi()">✕</button>
+          </div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:6px;">e.g. <code style="color:var(--green);">rahul@ybl</code>, <code style="color:var(--green);">9876543210@paytm</code>, <code style="color:var(--green);">rahul@oksbi</code> — open PhonePe/GPay/Paytm → Profile to find yours</div>
+          <div class="msg" id="upi-update-msg" style="margin-top:6px;"></div>
+        </div>
       </div>
       <div class="wh-row">
         <span class="wh-label">Webhook Secret</span>
@@ -1050,6 +1065,41 @@ function copyKey() {
 
 function copyWebhook() {
   navigator.clipboard.writeText(currentUser?.webhookSecret || '').then(() => showToast());
+}
+
+function showUpdateUpi() {
+  const f = document.getElementById('update-upi-form');
+  f.style.display = 'block';
+  document.getElementById('new-upi-input').value = currentUser?.upi || '';
+  document.getElementById('new-upi-input').focus();
+  hideMsg('upi-update-msg');
+}
+function hideUpdateUpi() {
+  document.getElementById('update-upi-form').style.display = 'none';
+}
+async function doUpdateUpi() {
+  const upi = document.getElementById('new-upi-input').value.trim();
+  if (!upi) return showMsg('upi-update-msg', 'Enter your UPI ID', 'error');
+  setLoading('save-upi-btn', true, 'Save');
+  try {
+    const r = await fetch('/auth/update-upi', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + currentToken },
+      body: JSON.stringify({ upi })
+    });
+    const d = await r.json();
+    if (d.status === 'success') {
+      currentUser.upi = d.upi;
+      document.getElementById('dash-upi').textContent = d.upi;
+      showMsg('upi-update-msg', '✅ UPI ID updated!', 'success');
+      setTimeout(hideUpdateUpi, 1500);
+    } else {
+      showMsg('upi-update-msg', d.message, 'error');
+    }
+  } catch {
+    showMsg('upi-update-msg', 'Connection error. Try again.', 'error');
+  }
+  setLoading('save-upi-btn', false, 'Save');
 }
 
 function toggleGuide() {

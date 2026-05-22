@@ -51,6 +51,19 @@ function authMiddleware(req, res, next) {
 }
 
 // ====================== SIGN UP ======================
+// UPI VPA validator — rejects plain email domains, requires valid UPI handle
+const INVALID_UPI_DOMAINS = ['gmail.com','yahoo.com','yahoo.in','hotmail.com','outlook.com','icloud.com','rediffmail.com','live.com'];
+function validateUpiId(upi) {
+  const clean = upi.toLowerCase().trim();
+  if (!clean.includes('@') || clean.indexOf('@') !== clean.lastIndexOf('@')) return false;
+  const [user, handle] = clean.split('@');
+  if (!user || user.length < 1) return false;
+  if (INVALID_UPI_DOMAINS.includes(handle)) return false;
+  // Must be alphanumeric/dot/hyphen/underscore handle
+  if (!/^[a-z0-9._\-]+$/.test(handle)) return false;
+  return true;
+}
+
 app.post('/auth/signup', async (req, res) => {
   const { gmail, upi, password } = req.body;
   if (!gmail || !upi || !password) {
@@ -59,6 +72,9 @@ app.post('/auth/signup', async (req, res) => {
   const cleanPass = password.replace(/\s/g, '');
   if (cleanPass.length < 8) {
     return res.json({ status: 'error', message: 'Google App Password must be at least 8 characters (spaces are ignored)' });
+  }
+  if (!validateUpiId(upi)) {
+    return res.json({ status: 'error', message: 'Invalid UPI ID. Use your real UPI VPA like name@upi, number@ybl, name@okicici — not your Gmail address.' });
   }
 
   const db = loadDB();
@@ -151,6 +167,21 @@ app.get('/auth/me', authMiddleware, (req, res) => {
     status: 'success',
     user: { gmail: user.gmail, upi: user.upi, apiKey: user.apiKey, webhookSecret: user.webhookSecret, createdAt: user.createdAt }
   });
+});
+
+// ====================== UPDATE UPI ID ======================
+app.post('/auth/update-upi', authMiddleware, async (req, res) => {
+  const { upi } = req.body;
+  if (!upi) return res.json({ status: 'error', message: 'UPI ID is required' });
+  if (!validateUpiId(upi)) {
+    return res.json({ status: 'error', message: 'Invalid UPI ID. Use your real UPI VPA like name@upi, number@ybl, name@okicici — not your Gmail address.' });
+  }
+  const db = loadDB();
+  const user = db.users[req.userId];
+  if (!user) return res.status(404).json({ status: 'error', message: 'User not found' });
+  db.users[req.userId].upi = upi.toLowerCase().trim();
+  saveDB(db);
+  res.json({ status: 'success', message: 'UPI ID updated!', upi: upi.toLowerCase().trim() });
 });
 
 // ====================== REVOKE & REGENERATE API ======================
