@@ -31,6 +31,11 @@ function generateApiKey() {
          Math.random().toString(36).substring(2, 9).toUpperCase();
 }
 
+function generateWebhookSecret() {
+  return 'GMSWH_' + Math.random().toString(36).substring(2, 10).toUpperCase() +
+         Math.random().toString(36).substring(2, 10).toUpperCase();
+}
+
 function authMiddleware(req, res, next) {
   const auth = req.headers.authorization;
   if (!auth || !auth.startsWith('Bearer ')) {
@@ -51,8 +56,9 @@ app.post('/auth/signup', async (req, res) => {
   if (!gmail || !upi || !password) {
     return res.json({ status: 'error', message: 'All fields are required' });
   }
-  if (password.length < 6) {
-    return res.json({ status: 'error', message: 'Password must be at least 6 characters' });
+  const cleanPass = password.replace(/\s/g, '');
+  if (cleanPass.length < 8) {
+    return res.json({ status: 'error', message: 'Google App Password must be at least 8 characters (spaces are ignored)' });
   }
 
   const db = loadDB();
@@ -62,14 +68,16 @@ app.post('/auth/signup', async (req, res) => {
     return res.json({ status: 'error', message: 'Account already exists. Please login.' });
   }
 
-  const hashedPassword = await bcrypt.hash(password, 10);
+  const hashedPassword = await bcrypt.hash(cleanPass, 10);
   const apiKey = generateApiKey();
+  const webhookSecret = generateWebhookSecret();
 
   db.users[key] = {
     gmail: key,
     upi: upi.toLowerCase().trim(),
     password: hashedPassword,
     apiKey,
+    webhookSecret,
     createdAt: new Date().toISOString()
   };
 
@@ -80,7 +88,7 @@ app.post('/auth/signup', async (req, res) => {
     status: 'success',
     message: 'Account created successfully!',
     token,
-    user: { gmail: key, upi: upi.toLowerCase().trim(), apiKey }
+    user: { gmail: key, upi: upi.toLowerCase().trim(), apiKey, webhookSecret }
   });
 });
 
@@ -88,7 +96,7 @@ app.post('/auth/signup', async (req, res) => {
 app.post('/auth/login', async (req, res) => {
   const { gmail, password } = req.body;
   if (!gmail || !password) {
-    return res.json({ status: 'error', message: 'Email and password are required' });
+    return res.json({ status: 'error', message: 'Email and Google App Password are required' });
   }
 
   const db = loadDB();
@@ -99,9 +107,16 @@ app.post('/auth/login', async (req, res) => {
     return res.json({ status: 'error', message: 'No account found with this email' });
   }
 
-  const match = await bcrypt.compare(password, user.password);
+  const cleanPass = password.replace(/\s/g, '');
+  const match = await bcrypt.compare(cleanPass, user.password);
   if (!match) {
-    return res.json({ status: 'error', message: 'Incorrect password' });
+    return res.json({ status: 'error', message: 'Incorrect Google App Password' });
+  }
+
+  // Auto-generate webhookSecret for legacy accounts that don't have one
+  if (!user.webhookSecret) {
+    user.webhookSecret = generateWebhookSecret();
+    saveDB(db);
   }
 
   const token = jwt.sign({ gmail: key }, JWT_SECRET, { expiresIn: '7d' });
@@ -109,7 +124,7 @@ app.post('/auth/login', async (req, res) => {
     status: 'success',
     message: 'Logged in successfully!',
     token,
-    user: { gmail: user.gmail, upi: user.upi, apiKey: user.apiKey }
+    user: { gmail: user.gmail, upi: user.upi, apiKey: user.apiKey, webhookSecret: user.webhookSecret }
   });
 });
 
@@ -118,9 +133,15 @@ app.get('/auth/me', authMiddleware, (req, res) => {
   const db = loadDB();
   const user = db.users[req.userId];
   if (!user) return res.status(404).json({ status: 'error', message: 'User not found' });
+
+  if (!user.webhookSecret) {
+    user.webhookSecret = generateWebhookSecret();
+    saveDB(db);
+  }
+
   res.json({
     status: 'success',
-    user: { gmail: user.gmail, upi: user.upi, apiKey: user.apiKey, createdAt: user.createdAt }
+    user: { gmail: user.gmail, upi: user.upi, apiKey: user.apiKey, webhookSecret: user.webhookSecret, createdAt: user.createdAt }
   });
 });
 
@@ -135,6 +156,56 @@ app.post('/auth/revoke-api', authMiddleware, (req, res) => {
   saveDB(db);
 
   res.json({ status: 'success', message: 'API key regenerated!', apiKey: newApiKey });
+});
+
+// ====================== PAYMENT WEBHOOK ======================
+app.post('/webhook/payment', (req, res) => {
+  const { order_id, webhook_secret, utr, amount, sender_name } = req.body;
+
+  if (!order_id || !webhook_secret) {
+    return res.status(400).json({ status: 'error', message: 'order_id and webhook_secret are required' });
+  }
+
+  const db = loadDB();
+  const user = Object.values(db.users).find(u => u.webhookSecret === webhook_secret);
+
+  if (!user) {
+    return res.status(403).json({ status: 'error', message: 'Invalid webhook_secret' });
+  }
+
+  const order = orders.get(order_id);
+  if (!order) {
+    return res.status(404).json({ status: 'error', message: 'Order not found' });
+  }
+
+  const EXPIRY_MS = 5 * 60 * 1000;
+  if ((Date.now() - order.createdAt) >= EXPIRY_MS) {
+    return res.status(410).json({ status: 'error', message: 'Order has expired' });
+  }
+
+  if (order.paid) {
+    return res.json({ status: 'success', message: 'Order was already marked as paid' });
+  }
+
+  order.paid = true;
+  order.utr = utr || ('WH' + Math.floor(Math.random() * 1e10));
+  order.amount = amount || order.amount;
+  order.sender_name = sender_name || 'Unknown';
+  order.transaction_id = 'FMPIB' + Math.floor(Math.random() * 1e9);
+  order.payment_time_ist = new Date().toLocaleString('en-IN');
+
+  res.json({
+    status: 'success',
+    message: 'Payment confirmed successfully',
+    data: {
+      order_id,
+      transaction_id: order.transaction_id,
+      utr: order.utr,
+      amount: order.amount,
+      sender_name: order.sender_name,
+      payment_time_ist: order.payment_time_ist
+    }
+  });
 });
 
 // ====================== GENERATE QR ======================

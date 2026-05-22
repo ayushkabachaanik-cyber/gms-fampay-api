@@ -487,6 +487,64 @@
     .detail-key { font-size: 10.5px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
     .detail-val { font-size: 13px; font-weight: 600; color: var(--text); word-break: break-all; }
 
+    /* App Password Guide */
+    .app-pass-guide {
+      margin-bottom: 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .guide-toggle {
+      width: 100%; display: flex; align-items: center; gap: 8px;
+      background: rgba(255,255,255,0.03);
+      border: none; cursor: pointer;
+      padding: 11px 14px;
+      color: var(--green); font-size: 13px; font-weight: 600;
+      font-family: inherit; text-align: left;
+      transition: background 0.2s;
+    }
+    .guide-toggle:hover { background: rgba(255,255,255,0.06); }
+    .guide-arrow { margin-left: auto; font-size: 10px; transition: transform 0.25s; }
+    .guide-arrow.open { transform: rotate(180deg); }
+    .guide-body {
+      display: none;
+      padding: 14px 16px;
+      border-top: 1px solid var(--border);
+      background: rgba(0,0,0,0.2);
+    }
+    .guide-body.open { display: block; }
+    .guide-steps {
+      padding-left: 18px;
+      margin: 0 0 10px;
+    }
+    .guide-steps li {
+      font-size: 12.5px; color: rgba(255,255,255,0.75);
+      line-height: 1.7; margin-bottom: 2px;
+    }
+    .guide-steps li strong { color: var(--text); }
+    .guide-note {
+      font-size: 12px; color: var(--muted);
+      background: rgba(0,255,136,0.06);
+      border: 1px solid var(--border-green);
+      border-radius: 7px; padding: 8px 10px;
+      line-height: 1.5;
+    }
+
+    /* Webhook secret row inside API key card */
+    .wh-row {
+      display: flex; align-items: center; gap: 10px;
+      margin-top: 14px; padding-top: 14px;
+      border-top: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .wh-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; white-space: nowrap; }
+    .wh-val {
+      font-family: 'Courier New', monospace;
+      font-size: 13.5px; font-weight: 700;
+      color: var(--blue);
+      flex: 1; word-break: break-all;
+    }
+
     /* API docs card */
     .docs-card {
       grid-column: 1 / -1;
@@ -618,9 +676,9 @@
           </div>
         </div>
         <div class="field">
-          <label>Password</label>
+          <label>Google App Password</label>
           <div class="field-wrap">
-            <input type="password" id="login-pass" placeholder="Your password" autocomplete="current-password">
+            <input type="password" id="login-pass" placeholder="16-char Google App Password" autocomplete="current-password">
             <button class="toggle-pass" type="button" onclick="togglePass('login-pass', this)">👁️</button>
           </div>
         </div>
@@ -646,12 +704,33 @@
           </div>
         </div>
         <div class="field">
-          <label>Password</label>
+          <label>Google App Password <span style="color:var(--green);font-weight:700;">← used as your login password</span></label>
           <div class="field-wrap">
-            <input type="password" id="signup-pass" placeholder="Min 6 characters" autocomplete="new-password">
+            <input type="password" id="signup-pass" placeholder="16-char Google App Password" autocomplete="new-password">
             <button class="toggle-pass" type="button" onclick="togglePass('signup-pass', this)">👁️</button>
           </div>
         </div>
+
+        <!-- App Password Guide -->
+        <div class="app-pass-guide">
+          <button class="guide-toggle" type="button" onclick="toggleGuide()">
+            <span>🔑</span> How to get a Google App Password?
+            <span class="guide-arrow" id="guide-arrow">▼</span>
+          </button>
+          <div class="guide-body" id="guide-body">
+            <ol class="guide-steps">
+              <li>Go to <a href="https://myaccount.google.com" target="_blank" style="color:var(--green)">myaccount.google.com</a></li>
+              <li>Click <strong>Security</strong> in the left sidebar</li>
+              <li>Under "How you sign in to Google", enable <strong>2-Step Verification</strong> if not already on</li>
+              <li>Search for <strong>"App Passwords"</strong> in the search bar at the top</li>
+              <li>Under App name, type <strong>"GMS FamPay"</strong> and click <strong>Create</strong></li>
+              <li>Copy the <strong>16-character password</strong> shown (spaces are auto-ignored)</li>
+              <li>Paste it in the field above ↑</li>
+            </ol>
+            <div class="guide-note">⚡ This App Password lets GMS verify your UPI payments through Gmail. It also acts as your account login password.</div>
+          </div>
+        </div>
+
         <button class="btn-primary" id="signup-btn" onclick="doSignup()">Create Account</button>
         <div class="msg" id="signup-msg"></div>
         <p class="hint">Already have an account? <a href="#" style="color:var(--green); text-decoration:none;" onclick="switchTab('login')">Log in →</a></p>
@@ -685,6 +764,11 @@
       </div>
       <div class="api-meta">
         <div class="api-meta-item">UPI ID: <strong id="dash-upi">—</strong></div>
+      </div>
+      <div class="wh-row">
+        <span class="wh-label">Webhook Secret</span>
+        <span class="wh-val" id="dash-webhook">—</span>
+        <button class="btn-icon" onclick="copyWebhook()">📋 Copy</button>
       </div>
     </div>
 
@@ -751,21 +835,21 @@
 
       <!-- API Docs -->
       <div class="card docs-card">
-        <div class="card-title"><span class="dot"></span>API Reference</div>
+        <div class="card-title"><span class="dot"></span>API Reference — works in any website, Telegram bot, Discord bot, or app</div>
 
         <div class="endpoint">
           <span class="method GET">GET</span>
           <div class="endpoint-info">
-            <div class="endpoint-url">/api/qr?api=<span id="doc-apikey" style="color:var(--green)">YOUR_KEY</span>&amount=100</div>
-            <div class="endpoint-desc">Generate a new payment QR code and order ID</div>
+            <div class="endpoint-url">/api/qr?api=<span id="doc-apikey" style="color:var(--green)">YOUR_KEY</span>&amp;amount=100</div>
+            <div class="endpoint-desc">Generate a payment QR code. Returns <code style="color:var(--green);background:rgba(0,255,136,0.08);padding:1px 5px;border-radius:4px;">order_id</code>, <code style="color:var(--green);background:rgba(0,255,136,0.08);padding:1px 5px;border-radius:4px;">qr_url</code>, <code style="color:var(--green);background:rgba(0,255,136,0.08);padding:1px 5px;border-radius:4px;">upi_id</code>, expires in 5 min</div>
           </div>
         </div>
 
         <div class="endpoint">
           <span class="method GET">GET</span>
           <div class="endpoint-info">
-            <div class="endpoint-url">/api/verify?api_key=<span style="color:var(--green)">YOUR_KEY</span>&order_id=FAMPAY...</div>
-            <div class="endpoint-desc">Verify payment status for an order</div>
+            <div class="endpoint-url">/api/verify?api_key=<span id="doc-apikey2" style="color:var(--green)">YOUR_KEY</span>&amp;order_id=FAMPAY...</div>
+            <div class="endpoint-desc">Check payment status. Returns <code style="color:var(--yellow);background:rgba(255,193,7,0.08);padding:1px 5px;border-radius:4px;">pending</code>, <code style="color:var(--green);background:rgba(0,255,136,0.08);padding:1px 5px;border-radius:4px;">success</code>, or <code style="color:var(--red);background:rgba(255,79,109,0.08);padding:1px 5px;border-radius:4px;">expired</code></div>
           </div>
         </div>
 
@@ -773,7 +857,24 @@
           <span class="method GET">GET</span>
           <div class="endpoint-info">
             <div class="endpoint-url">/qr/ORDER_ID.png</div>
-            <div class="endpoint-desc">Get the actual QR code image (PNG)</div>
+            <div class="endpoint-desc">Get the scannable QR code image directly as PNG — embed in any &lt;img&gt; tag</div>
+          </div>
+        </div>
+
+        <div class="endpoint" style="border-color:rgba(79,163,255,0.25);background:rgba(79,163,255,0.04);">
+          <span class="method POST">POST</span>
+          <div class="endpoint-info">
+            <div class="endpoint-url" style="color:var(--blue)">/webhook/payment</div>
+            <div class="endpoint-desc" style="margin-bottom:8px;">Confirm a payment from your UPI processor. Instantly marks the order as paid — polling clients see success on the next check.</div>
+            <div style="background:rgba(0,0,0,0.4);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-family:monospace;font-size:12px;color:rgba(255,255,255,0.7);line-height:1.7;">
+              {<br>
+              &nbsp;&nbsp;"order_id": "<span id="doc-orderid-ex" style="color:var(--green)">FAMPAY...</span>",<br>
+              &nbsp;&nbsp;"webhook_secret": "<span id="doc-whsecret" style="color:var(--blue)">YOUR_WEBHOOK_SECRET</span>",<br>
+              &nbsp;&nbsp;"utr": "123456789012",<br>
+              &nbsp;&nbsp;"amount": 100,<br>
+              &nbsp;&nbsp;"sender_name": "John Doe"<br>
+              }
+            </div>
           </div>
         </div>
       </div>
@@ -889,7 +990,8 @@ async function doSignup() {
   const password = document.getElementById('signup-pass').value;
   hideMsg('signup-msg');
   if (!gmail || !upi || !password) return showMsg('signup-msg', 'All fields are required', 'error');
-  if (password.length < 6) return showMsg('signup-msg', 'Password must be at least 6 characters', 'error');
+  const cleanPass = password.replace(/\s/g, '');
+  if (cleanPass.length < 8) return showMsg('signup-msg', 'Google App Password must be at least 8 characters (spaces are ignored)', 'error');
   setLoading('signup-btn', true, 'Create Account');
   try {
     const r = await fetch('/auth/signup', {
@@ -920,7 +1022,10 @@ function showDash() {
   document.getElementById('dash-email').textContent = currentUser.gmail;
   document.getElementById('dash-apikey').textContent = currentUser.apiKey;
   document.getElementById('dash-upi').textContent = currentUser.upi;
+  document.getElementById('dash-webhook').textContent = currentUser.webhookSecret || '—';
   document.getElementById('doc-apikey').textContent = currentUser.apiKey;
+  document.getElementById('doc-apikey2').textContent = currentUser.apiKey;
+  document.getElementById('doc-whsecret').textContent = currentUser.webhookSecret || 'YOUR_WEBHOOK_SECRET';
   document.getElementById('verify-orderid').value = '';
   document.getElementById('verify-result').innerHTML = '';
   document.getElementById('qr-result').style.display = 'none';
@@ -941,6 +1046,17 @@ function doLogout() {
 
 function copyKey() {
   navigator.clipboard.writeText(currentUser?.apiKey || '').then(() => showToast());
+}
+
+function copyWebhook() {
+  navigator.clipboard.writeText(currentUser?.webhookSecret || '').then(() => showToast());
+}
+
+function toggleGuide() {
+  const body  = document.getElementById('guide-body');
+  const arrow = document.getElementById('guide-arrow');
+  body.classList.toggle('open');
+  arrow.classList.toggle('open');
 }
 
 function showToast() {
