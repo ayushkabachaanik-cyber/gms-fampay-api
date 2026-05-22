@@ -266,7 +266,9 @@ app.get('/qr/:orderId.png', async (req, res) => {
   }
 
   const amountFormatted = parseFloat(amount).toFixed(2);
-  const upiString = `upi://pay?pa=${encodeURIComponent(upiId)}&pn=${encodeURIComponent('GMS Pay')}&am=${amountFormatted}&cu=INR&tn=${encodeURIComponent(orderId)}`;
+  // pa (payee address) must NOT have @ encoded — UPI apps reject %40
+  const encodedUpi = upiId.replace(/[^@a-zA-Z0-9._\-]/g, c => encodeURIComponent(c));
+  const upiString = `upi://pay?pa=${encodedUpi}&pn=GMS%20Pay&am=${amountFormatted}&cu=INR&tn=${encodeURIComponent(orderId)}`;
 
   try {
     const qrDataUrl = await QRCode.toDataURL(upiString, {
