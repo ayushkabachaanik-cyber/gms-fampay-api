@@ -108,9 +108,17 @@ app.post('/auth/login', async (req, res) => {
   }
 
   const cleanPass = password.replace(/\s/g, '');
-  const match = await bcrypt.compare(cleanPass, user.password);
+
+  // Try stripped password first (new accounts), then original (legacy accounts hashed with spaces)
+  let match = await bcrypt.compare(cleanPass, user.password);
   if (!match) {
-    return res.json({ status: 'error', message: 'Incorrect Google App Password' });
+    const legacyMatch = await bcrypt.compare(password, user.password);
+    if (!legacyMatch) {
+      return res.json({ status: 'error', message: 'Incorrect Google App Password' });
+    }
+    // Upgrade legacy account: re-hash without spaces so future logins work cleanly
+    user.password = await bcrypt.hash(cleanPass, 10);
+    saveDB(db);
   }
 
   // Auto-generate webhookSecret for legacy accounts that don't have one
