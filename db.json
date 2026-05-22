@@ -1,1 +1,12 @@
-{"users":{}}
+{
+  "users": {
+    "ragini.19854@gmail.com": {
+      "gmail": "ragini.19854@gmail.com",
+      "upi": "shubh412@fam",
+      "password": "$2b$10$ut.fq6NkD5AfIOfY/sJ82OIHkdtSEC.y6irEPV4.JmEQZLhTeJjVi",
+      "apiKey": "GMSB2MZ97UNZJHM39",
+      "webhookSecret": "GMSWH_JNJ4I7QP7UBAHEMT",
+      "createdAt": "2026-05-22T20:08:47.050Z"
+    }
+  }
+}
