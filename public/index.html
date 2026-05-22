@@ -363,6 +363,16 @@
       border-radius: 12px;
       padding: 16px;
       text-align: center;
+      transition: border-color 0.4s;
+    }
+    .qr-box.expired { border-color: rgba(255,79,109,0.4); }
+    .qr-box.paid    { border-color: var(--border-green); }
+
+    /* QR image wrapper — holds image + overlay */
+    .qr-img-wrap {
+      position: relative;
+      width: 180px; height: 180px;
+      margin: 0 auto 12px;
     }
     .qr-img {
       border-radius: 10px;
@@ -370,15 +380,87 @@
       width: 180px; height: 180px;
       object-fit: contain;
       background: white;
-      display: block; margin: 0 auto 12px;
+      display: block;
       box-shadow: 0 0 20px var(--green-glow);
+      transition: filter 0.4s, border-color 0.4s;
     }
+    .qr-box.expired .qr-img { filter: grayscale(1) opacity(0.35); border-color: rgba(255,79,109,0.5); box-shadow: none; }
+    .qr-box.paid    .qr-img { filter: grayscale(1) opacity(0.3); border-color: var(--border-green); }
+
+    /* overlay on QR */
+    .qr-overlay {
+      position: absolute; inset: 0;
+      border-radius: 10px;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 6px;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.35s;
+    }
+    .qr-box.expired .qr-overlay.overlay-expired,
+    .qr-box.paid    .qr-overlay.overlay-paid { opacity: 1; }
+    .overlay-expired { background: rgba(20,5,10,0.72); }
+    .overlay-paid    { background: rgba(0,20,10,0.72); }
+    .qr-overlay .ov-icon { font-size: 34px; }
+    .qr-overlay .ov-text {
+      font-size: 12px; font-weight: 800;
+      letter-spacing: 1.5px; text-transform: uppercase;
+    }
+    .overlay-expired .ov-text { color: var(--red); }
+    .overlay-paid    .ov-text { color: var(--green); }
+
+    /* Countdown ring */
+    .qr-timer-row {
+      display: flex; align-items: center; justify-content: center;
+      gap: 10px; margin-bottom: 8px;
+    }
+    .timer-ring-wrap { position: relative; width: 36px; height: 36px; flex-shrink: 0; }
+    .timer-ring-wrap svg { transform: rotate(-90deg); }
+    .timer-ring-bg  { fill: none; stroke: rgba(255,255,255,0.08); stroke-width: 3; }
+    .timer-ring-arc { fill: none; stroke-width: 3; stroke-linecap: round;
+                      transition: stroke-dashoffset 1s linear, stroke 0.5s; }
+    .timer-text-center {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 8px; font-weight: 800; color: var(--text);
+    }
+    .timer-label {
+      font-size: 18px; font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.5px;
+      transition: color 0.4s;
+    }
+    .timer-sub { font-size: 11px; color: var(--muted); }
+
+    /* live polling dot */
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.25} }
+    .poll-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+      animation: blink 1.4s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+    .poll-dot.stopped { background: var(--muted); box-shadow: none; animation: none; }
+
     .qr-order-id {
-      font-family: monospace; font-size: 12px;
-      color: var(--muted); margin-bottom: 6px;
+      font-family: monospace; font-size: 11px;
+      color: var(--muted); margin-top: 6px;
+      word-break: break-all;
     }
-    .qr-upi { font-size: 13.5px; color: var(--text); font-weight: 600; margin-bottom: 4px; }
-    .qr-amount { font-size: 22px; font-weight: 800; color: var(--green); }
+    .qr-upi { font-size: 13px; color: var(--text); font-weight: 600; margin-bottom: 2px; }
+    .qr-amount { font-size: 22px; font-weight: 800; color: var(--green); margin-bottom: 6px; }
+
+    .btn-new-qr {
+      width: 100%; margin-top: 12px;
+      background: rgba(255,79,109,0.1);
+      border: 1px solid rgba(255,79,109,0.3);
+      color: #ff8fa2;
+      padding: 9px;
+      border-radius: 9px; font-size: 13px; font-weight: 700;
+      font-family: inherit; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-new-qr:hover { background: rgba(255,79,109,0.18); }
 
     /* Verify result */
     .verify-result { margin-top: 14px; }
@@ -617,11 +699,42 @@
           <button class="btn-action" onclick="genQR()">Generate</button>
         </div>
         <div class="qr-result" id="qr-result">
-          <div class="qr-box">
-            <img class="qr-img" id="qr-img" src="" alt="QR Code">
-            <div class="qr-upi" id="qr-upi-label">—</div>
+          <div class="qr-box" id="qr-box">
+
+            <!-- Live status row -->
+            <div class="qr-timer-row">
+              <span class="poll-dot" id="poll-dot"></span>
+              <div class="timer-ring-wrap">
+                <svg width="36" height="36" viewBox="0 0 36 36">
+                  <circle class="timer-ring-bg" cx="18" cy="18" r="15"/>
+                  <circle class="timer-ring-arc" id="timer-arc" cx="18" cy="18" r="15"
+                    stroke-dasharray="94.25" stroke-dashoffset="0" stroke="var(--green)"/>
+                </svg>
+                <div class="timer-text-center" id="timer-pct">100</div>
+              </div>
+              <div>
+                <div class="timer-label" id="timer-label">5:00</div>
+                <div class="timer-sub" id="timer-sub">until expiry</div>
+              </div>
+            </div>
+
+            <!-- QR image with overlays -->
+            <div class="qr-img-wrap">
+              <img class="qr-img" id="qr-img" src="" alt="QR Code">
+              <div class="qr-overlay overlay-expired">
+                <div class="ov-icon">⛔</div>
+                <div class="ov-text">Expired</div>
+              </div>
+              <div class="qr-overlay overlay-paid">
+                <div class="ov-icon">✅</div>
+                <div class="ov-text">Paid</div>
+              </div>
+            </div>
+
             <div class="qr-amount" id="qr-amount-label">₹0</div>
-            <div class="qr-order-id" id="qr-order-id">Order ID: —</div>
+            <div class="qr-upi" id="qr-upi-label">—</div>
+            <div class="qr-order-id" id="qr-order-id">—</div>
+            <button class="btn-new-qr" id="btn-new-qr" style="display:none" onclick="genQR()">⟳ Generate New QR</button>
           </div>
         </div>
       </div>
@@ -814,12 +927,14 @@ function showDash() {
 }
 
 function doLogout() {
+  stopPolling();
   currentToken = null; currentUser = null;
   localStorage.removeItem('gms_token');
   document.getElementById('dash-page').classList.remove('active');
   document.getElementById('auth-page').classList.add('active');
   document.getElementById('login-gmail').value = '';
   document.getElementById('login-pass').value = '';
+  document.getElementById('qr-result').style.display = 'none';
   hideMsg('login-msg');
   switchTab('login');
 }
@@ -859,23 +974,132 @@ async function doRevoke() {
   } catch(e) { alert('Failed to regenerate. Try again.'); }
 }
 
-let lastOrderId = null;
+// ===== QR / POLLING STATE =====
+let lastOrderId    = null;
+let pollInterval   = null;
+let countdownTimer = null;
+let qrExpiresAt    = 0;
+const QR_DURATION  = 5 * 60 * 1000; // 5 minutes
+const POLL_EVERY   = 4000;           // check every 4 s
+const RING_CIRC    = 94.25;          // 2π × r(15)
+
+function stopPolling() {
+  clearInterval(pollInterval);  pollInterval   = null;
+  clearInterval(countdownTimer); countdownTimer = null;
+  document.getElementById('poll-dot').classList.add('stopped');
+}
+
+function setQrState(state) {
+  const box = document.getElementById('qr-box');
+  box.classList.remove('expired', 'paid');
+  if (state === 'expired' || state === 'paid') box.classList.add(state);
+
+  const lbl   = document.getElementById('timer-label');
+  const sub   = document.getElementById('timer-sub');
+  const btnNQ = document.getElementById('btn-new-qr');
+
+  if (state === 'expired') {
+    lbl.textContent = 'Expired'; lbl.style.color = 'var(--red)';
+    sub.textContent = 'QR can no longer be used';
+    btnNQ.style.display = 'block';
+    stopPolling();
+    document.getElementById('verify-result').innerHTML =
+      `<div class="status-badge status-error"><span class="status-dot"></span>QR Expired — generate a new one</div>`;
+  } else if (state === 'paid') {
+    lbl.textContent = 'Paid ✓'; lbl.style.color = 'var(--green)';
+    sub.textContent = 'Payment received!';
+    btnNQ.style.display = 'none';
+    stopPolling();
+  } else {
+    lbl.style.color = '';
+    sub.textContent = 'until expiry';
+    btnNQ.style.display = 'none';
+  }
+}
+
+function updateRing(remainingMs) {
+  const frac   = Math.max(0, Math.min(1, remainingMs / QR_DURATION));
+  const offset = RING_CIRC * (1 - frac);
+  const pct    = Math.round(frac * 100);
+  const arc    = document.getElementById('timer-arc');
+  const lbl    = document.getElementById('timer-label');
+  const pctEl  = document.getElementById('timer-pct');
+
+  arc.style.strokeDashoffset = offset;
+  pctEl.textContent = pct;
+
+  // colour: green → yellow → red
+  arc.style.stroke = frac > 0.5 ? 'var(--green)' : frac > 0.2 ? 'var(--yellow)' : 'var(--red)';
+  if (!document.getElementById('qr-box').classList.contains('paid')) {
+    lbl.style.color = frac > 0.5 ? '' : frac > 0.2 ? 'var(--yellow)' : 'var(--red)';
+  }
+
+  const totalSec = Math.ceil(remainingMs / 1000);
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  lbl.textContent = `${m}:${s.toString().padStart(2,'0')}`;
+}
+
+function startCountdown() {
+  clearInterval(countdownTimer);
+  countdownTimer = setInterval(() => {
+    const rem = qrExpiresAt - Date.now();
+    if (rem <= 0) {
+      updateRing(0);
+      setQrState('expired');
+      return;
+    }
+    updateRing(rem);
+  }, 1000);
+}
+
+async function pollOnce(orderId) {
+  try {
+    const r = await fetch(`/api/verify?api_key=${encodeURIComponent(currentUser.apiKey)}&order_id=${encodeURIComponent(orderId)}`);
+    const d = await r.json();
+
+    if (d.status === 'success') {
+      setQrState('paid');
+      renderVerifyResult(d);
+    } else if (d.status === 'expired') {
+      setQrState('expired');
+    }
+    // 'pending' — do nothing, just wait for next poll
+  } catch(e) { /* network error — retry next tick */ }
+}
+
+function startPolling(orderId) {
+  clearInterval(pollInterval);
+  document.getElementById('poll-dot').classList.remove('stopped');
+  pollInterval = setInterval(() => pollOnce(orderId), POLL_EVERY);
+  pollOnce(orderId); // immediate first check
+}
 
 async function genQR() {
   const amount = parseFloat(document.getElementById('qr-amount').value) || 10;
-  const btn = document.querySelector('.card:nth-child(1) .btn-action');
+  const btn    = document.querySelector('.card:nth-child(1) .btn-action');
   btn.disabled = true; btn.textContent = '...';
+  stopPolling();
+
   try {
     const r = await fetch(`/api/qr?api=${encodeURIComponent(currentUser.apiKey)}&amount=${amount}`);
     const d = await r.json();
     if (d.status === 'success') {
-      lastOrderId = d.data.order_id;
-      document.getElementById('qr-img').src = d.data.qr_url + '?t=' + Date.now();
-      document.getElementById('qr-upi-label').textContent = d.data.upi_id;
+      lastOrderId  = d.data.order_id;
+      qrExpiresAt  = Date.now() + QR_DURATION;
+
+      document.getElementById('qr-img').src          = d.data.qr_url + '?t=' + Date.now();
+      document.getElementById('qr-upi-label').textContent   = d.data.upi_id;
       document.getElementById('qr-amount-label').textContent = '₹' + d.data.amount;
-      document.getElementById('qr-order-id').textContent = 'Order ID: ' + d.data.order_id;
-      document.getElementById('qr-result').style.display = 'block';
-      document.getElementById('verify-orderid').value = d.data.order_id;
+      document.getElementById('qr-order-id').textContent    = 'Order ID: ' + d.data.order_id;
+      document.getElementById('qr-result').style.display    = 'block';
+      document.getElementById('verify-orderid').value       = d.data.order_id;
+      document.getElementById('verify-result').innerHTML    = '';
+
+      setQrState('active');
+      updateRing(QR_DURATION);
+      startCountdown();
+      startPolling(d.data.order_id);
     } else {
       alert(d.message);
     }
@@ -883,32 +1107,40 @@ async function genQR() {
   btn.disabled = false; btn.textContent = 'Generate';
 }
 
+function renderVerifyResult(d) {
+  const container = document.getElementById('verify-result');
+  if (d.status === 'success') {
+    container.innerHTML = `
+      <div class="status-badge status-success"><span class="status-dot"></span>Payment Success</div>
+      <div class="detail-grid">
+        <div class="detail-item"><div class="detail-key">Transaction ID</div><div class="detail-val">${d.data.transaction_id}</div></div>
+        <div class="detail-item"><div class="detail-key">UTR</div><div class="detail-val">${d.data.utr}</div></div>
+        <div class="detail-item"><div class="detail-key">Amount</div><div class="detail-val">₹${d.data.amount}</div></div>
+        <div class="detail-item"><div class="detail-key">Sender</div><div class="detail-val">${d.data.sender_name}</div></div>
+        <div class="detail-item" style="grid-column:1/-1"><div class="detail-key">Time</div><div class="detail-val">${d.data.payment_time_ist}</div></div>
+      </div>`;
+  } else if (d.status === 'pending') {
+    container.innerHTML = `
+      <div class="status-badge status-pending"><span class="status-dot"></span>Waiting for payment…</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:6px;">Auto-checking every 4 seconds.</div>`;
+  } else if (d.status === 'expired') {
+    container.innerHTML = `<div class="status-badge status-error"><span class="status-dot"></span>QR Expired — generate a new one</div>`;
+  } else {
+    container.innerHTML = `<div class="status-badge status-error"><span class="status-dot"></span>${d.message}</div>`;
+  }
+}
+
 async function verifyPay() {
   const orderId = document.getElementById('verify-orderid').value.trim();
   if (!orderId) return;
   const container = document.getElementById('verify-result');
-  container.innerHTML = '<div style="color:var(--muted);font-size:13px;">Checking...</div>';
+  container.innerHTML = '<div style="color:var(--muted);font-size:13px;">Checking…</div>';
   try {
     const r = await fetch(`/api/verify?api_key=${encodeURIComponent(currentUser.apiKey)}&order_id=${encodeURIComponent(orderId)}`);
     const d = await r.json();
-
-    if (d.status === 'success') {
-      container.innerHTML = `
-        <div class="status-badge status-success"><span class="status-dot"></span>Payment Success</div>
-        <div class="detail-grid">
-          <div class="detail-item"><div class="detail-key">Transaction ID</div><div class="detail-val">${d.data.transaction_id}</div></div>
-          <div class="detail-item"><div class="detail-key">UTR</div><div class="detail-val">${d.data.utr}</div></div>
-          <div class="detail-item"><div class="detail-key">Amount</div><div class="detail-val">₹${d.data.amount}</div></div>
-          <div class="detail-item"><div class="detail-key">Sender</div><div class="detail-val">${d.data.sender_name}</div></div>
-          <div class="detail-item" style="grid-column:1/-1"><div class="detail-key">Time</div><div class="detail-val">${d.data.payment_time_ist}</div></div>
-        </div>`;
-    } else if (d.status === 'pending') {
-      container.innerHTML = `
-        <div class="status-badge status-pending"><span class="status-dot"></span>Pending</div>
-        <div style="font-size:13px;color:var(--muted);">Payment not received yet. Try again in a moment.</div>`;
-    } else {
-      container.innerHTML = `<div class="status-badge status-error"><span class="status-dot"></span>Error: ${d.message}</div>`;
-    }
+    renderVerifyResult(d);
+    if (d.status === 'success') setQrState('paid');
+    if (d.status === 'expired')  setQrState('expired');
   } catch(e) {
     container.innerHTML = `<div class="status-badge status-error"><span class="status-dot"></span>Connection error</div>`;
   }

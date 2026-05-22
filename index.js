@@ -227,6 +227,17 @@ app.get('/api/verify', (req, res) => {
     return res.json({ status: 'error', message: 'Order not found. Generate a QR first.' });
   }
 
+  const EXPIRY_MS = 5 * 60 * 1000;
+  const isExpired = (Date.now() - order.createdAt) >= EXPIRY_MS;
+
+  if (isExpired && !order.paid) {
+    return res.json({
+      status: 'expired',
+      message: 'This QR code has expired. Please generate a new one.',
+      order_id: orderId
+    });
+  }
+
   if (order.paid) {
     return res.json({
       status: 'success',
@@ -241,10 +252,12 @@ app.get('/api/verify', (req, res) => {
     });
   }
 
+  const remainingMs = Math.max(0, (order.createdAt + EXPIRY_MS) - Date.now());
   return res.json({
     status: 'pending',
     message: 'Payment not received yet. Please complete the UPI payment and try again.',
-    order_id: orderId
+    order_id: orderId,
+    expires_in_ms: remainingMs
   });
 });
 
