@@ -13,7 +13,7 @@ app.use(express.json());
 const DB_FILE = 'db.json';
 const JWT_SECRET = process.env.JWT_SECRET || 'gms-fampay-secret-2025';
 
-const pendingOrders = new Map();
+const orders = new Map();
 
 function loadDB() {
   if (fs.existsSync(DB_FILE)) {
@@ -152,7 +152,7 @@ app.get('/api/qr', (req, res) => {
   const orderId = 'FAMPAY' + Date.now();
   const baseUrl = `${req.protocol}://${req.get('host')}`;
 
-  pendingOrders.set(orderId, { upi: user.upi, amount, gmail: user.gmail });
+  orders.set(orderId, { upi: user.upi, amount, gmail: user.gmail, paid: false, createdAt: Date.now() });
 
   const response = {
     status: 'success',
@@ -171,7 +171,7 @@ app.get('/api/qr', (req, res) => {
 // ====================== QR IMAGE (Real QR Code) ======================
 app.get('/qr/:orderId.png', async (req, res) => {
   const orderId = req.params.orderId;
-  const order = pendingOrders.get(orderId);
+  const order = orders.get(orderId);
 
   let upiId = 'unknown@upi';
   let amount = 10;
@@ -209,6 +209,10 @@ app.get('/api/verify', (req, res) => {
   const apiKey = req.query.api_key;
   const orderId = req.query.order_id;
 
+  if (!orderId) {
+    return res.json({ status: 'error', message: 'order_id is required' });
+  }
+
   const db = loadDB();
   const user = Object.values(db.users).find(u => u.apiKey === apiKey);
 
@@ -216,27 +220,31 @@ app.get('/api/verify', (req, res) => {
     return res.json({ status: 'error', message: 'Invalid API Key' });
   }
 
-  const isSuccess = Math.random() > 0.35;
+  const order = orders.get(orderId);
 
-  if (isSuccess) {
-    res.json({
+  if (!order) {
+    return res.json({ status: 'error', message: 'Order not found. Generate a QR first.' });
+  }
+
+  if (order.paid) {
+    return res.json({
       status: 'success',
       data: {
         order_id: orderId,
-        transaction_id: 'FMPIB' + Math.floor(Math.random() * 1000000000),
-        amount: pendingOrders.get(orderId)?.amount || 10,
-        utr: '3' + Math.floor(Math.random() * 10000000000),
-        sender_name: 'Test User',
-        payment_time_ist: new Date().toLocaleString('en-IN')
+        transaction_id: order.transaction_id,
+        amount: order.amount,
+        utr: order.utr,
+        sender_name: order.sender_name,
+        payment_time_ist: order.payment_time_ist
       }
     });
-  } else {
-    res.json({
-      status: 'pending',
-      message: 'Payment verification in progress',
-      order_id: orderId
-    });
   }
+
+  return res.json({
+    status: 'pending',
+    message: 'Payment not received yet. Please complete the UPI payment and try again.',
+    order_id: orderId
+  });
 });
 
 const PORT = process.env.PORT || 5000;
