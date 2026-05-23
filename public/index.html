@@ -31,12 +31,14 @@
     ::-webkit-scrollbar-thumb { background: rgba(0,255,136,0.2); border-radius: 10px; }
     ::-webkit-scrollbar-thumb:hover { background: rgba(0,255,136,0.4); }
 
-    body {
+    html, body {
       font-family: 'Inter', sans-serif;
       background: var(--bg);
       color: var(--text);
-      min-height: 100vh;
+      min-height: 100%;
       overflow-x: hidden;
+      overflow-y: auto;
+      height: auto;
     }
 
     /* ===== PARTICLE CANVAS ===== */
@@ -133,8 +135,12 @@
 
     /* ===== AUTH PAGE ===== */
     #auth-page {
-      align-items: center; justify-content: center;
-      padding: 40px 20px;
+      align-items: flex-start; justify-content: center;
+      padding: 40px 20px 60px;
+      min-height: calc(100vh - 62px);
+    }
+    @media (min-height: 700px) {
+      #auth-page { align-items: center; }
     }
     .auth-card {
       width: 100%; max-width: 450px;
