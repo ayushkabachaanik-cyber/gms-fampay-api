@@ -10,7 +10,8 @@ app.use(cors());
 app.use(express.static('public'));
 app.use(express.json());
 
-const DB_FILE = 'db.json';
+const IS_VERCEL = !!process.env.VERCEL || !!process.env.NOW_REGION;
+const DB_FILE = IS_VERCEL ? '/tmp/db.json' : 'db.json';
 const JWT_SECRET = process.env.JWT_SECRET || 'gms-fampay-secret-2025';
 
 const orders = new Map();
@@ -373,7 +374,11 @@ app.get('/api/verify', (req, res) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`GMS FamPay API running on port ${PORT}`);
-});
+if (!IS_VERCEL) {
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`GMS FamPay API running on port ${PORT}`);
+  });
+}
+
+module.exports = app;
